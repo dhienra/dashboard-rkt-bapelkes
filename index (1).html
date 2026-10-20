@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rencana Kerja Tahunan Bapelkes - Diterbitkan</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.js"></script>
+<style>
+body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+.card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+/* CLASS INDENTASI HIERARKI KODE & URAIAN */
+.level-program-kode { padding-left: 0.5rem !important; font-weight: bold; }
+.level-program-uraian { padding-left: 0.5rem !important; font-weight: bold; }
+
+.level-kegiatan-kode { padding-left: 1.25rem !important; }
+.level-kegiatan-uraian { padding-left: 1.5rem !important; }
+
+.level-subkegiatan-kode { padding-left: 2rem !important; }
+.level-subkegiatan-uraian { padding-left: 2.5rem !important; }
+
+.level-komponen-kode { padding-left: 2.75rem !important; color: #64748b; font-style: italic; }
+.level-komponen-uraian { padding-left: 3.5rem !important; }
+
+.bg-program { background-color: #0d6efd; color: #ffffff; }
+.bg-kegiatan { background-color: #e7f1ff; }
+.bg-subkegiatan { background-color: #f1f5f9; }
+.bg-item { background-color: #ffffff; }
+.kode-rekening-badge { font-family: monospace; font-size: 0.85rem; background-color: #e2e8f0; color: #1e293b; }
+
+/* Mode Admin */
+.admin-only { display: none !important; }
+.admin-block { display: none !important; }
+.admin-inline { display: none !important; }
+
+body.admin-mode .admin-only { display: table-cell !important; }
+body.admin-mode td.admin-only { display: table-cell !important; }
+body.admin-mode th.admin-only { display: table-cell !important; }
+body.admin-mode .admin-block { display: flex !important; }
+body.admin-mode .admin-inline { display: inline-block !important; }
+
+.signature-space { height: 70px; }
+.table-responsive { max-height: 600px; }
+th.th-align-center { text-align: center; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div id="rktSyncBar" class="container-fluid py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2" style="background:#eef5ff;border-bottom:1px solid #d8e5f5;font-size:.85rem;position:relative;z-index:5">
+  <div><i class="fa-solid fa-cloud-arrow-up me-2"></i><strong>Sinkronisasi Database RKT</strong> <span id="rktSyncStatus" class="ms-2 text-secondary">Menyiapkan koneksi…</span><div id="rktSyncMeta" class="small text-muted">Data akan disimpan ke Google Spreadsheet setelah backend dikonfigurasi.</div></div>
+  <div class="d-flex gap-2"><button type="button" id="rktSyncNow" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-rotate me-1"></i>Sinkronkan</button><button type="button" id="rktInitDb" class="btn btn-sm btn-primary" style="display:none">Simpan data awal ke database</button></div>
+</div>
+
+
+<nav class="navbar navbar-dark bg-dark shadow-sm py-3">
+  <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="navbar-brand d-flex align-items-center gap-2 fw-bold m-0">
+      <i class="fa-solid fa-calculator text-primary fs-4"></i>
+      <span>Sistem Rencana Kerja Tahunan Bapelkes</span>
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      <div class="form-check form-switch text-light m-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="switchAdminMode" onchange="toggleAdminMode(this)">
+        <label class="form-check-label small text-warning fw-semibold" for="switchAdminMode"><i class="fa-solid fa-user-shield me-1"></i> Mode Admin</label>
+      </div>
+      <button class="btn btn-outline-light btn-sm" onclick="bukaModalCetakRAB()"><i class="fa-solid fa-file-invoice-dollar me-1"></i> Cetak RAB (PDF)</button>
+      <button class="btn btn-outline-light btn-sm" onclick="unduhLaporanPdf()"><i class="fa-solid fa-file-pdf me-1"></i> Unduh Laporan (PDF)</button>
+      <span class="badge bg-secondary">Diterbitkan + new Date()</span>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 my-4">
+
+  <!-- Filter Periode & Panel Kelola Admin -->
+  <div class="card card-custom p-3 bg-white mb-4 d-flex flex-row align-items-center justify-content-between flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+      <i class="fa-solid fa-filter text-primary"></i>
+      <label for="filterBulan" class="fw-bold text-secondary mb-0">Filter Periode Bulan:</label>
+      <select id="filterBulan" class="form-select form-select-sm w-auto" onchange="filterBulanChanged(this.value)">
+        <option value="all" selected>Semua Bulan (Jan - Des)</option>
+        <option value="0">Januari</option>
+        <option value="1">Februari</option>
+        <option value="2">Maret</option>
+        <option value="3">April</option>
+        <option value="4">Mei</option>
+        <option value="5">Juni</option>
+        <option value="6">Juli</option>
+        <option value="7">Agustus</option>
+        <option value="8">September</option>
+        <option value="9">Oktober</option>
+        <option value="10">November</option>
+        <option value="11">Desember</option>
+      </select>
+    </div>
+    
+    <!-- Tombol Fitur Admin -->
+    <div class="admin-block gap-2 flex-wrap">
+      <button class="btn btn-sm btn-primary" onclick="bukaModalProgram()"><i class="fa-solid fa-layer-group me-1"></i> Tambah Program</button>
+      <button class="btn btn-sm btn-outline-primary" onclick="bukaModalKegiatan()"><i class="fa-solid fa-folder-plus me-1"></i> Tambah Kegiatan</button>
+      <button class="btn btn-sm btn-outline-success" onclick="bukaModalSubKegiatan()"><i class="fa-solid fa-folder-plus me-1"></i> Tambah Sub Kegiatan</button>
+      <button class="btn btn-sm btn-outline-dark" onclick="bukaModalKomponen(null)"><i class="fa-solid fa-plus me-1"></i> Tambah Komponen</button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card card-custom bg-white p-3 shadow-sm border-start border-4 border-primary">
+        <span class="text-muted small fw-bold text-uppercase">Total Pagu RKT</span>
+        <h4 class="fw-bold my-1 text-primary" id="cardPagu">Rp 0</h4>
+        <span class="text-muted small" id="cardTotalProgramInfo">0 Program Terdaftar</span>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-custom bg-white p-3 shadow-sm border-start border-4 border-success">
+        <span class="text-muted small fw-bold text-uppercase">Total Realisasi</span>
+        <h4 class="fw-bold my-1 text-success" id="cardRealisasi">Rp 0</h4>
+        <span class="text-muted small" id="cardSisa">Sisa: Rp 0</span>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-custom bg-white p-3 shadow-sm border-start border-4 border-info">
+        <span class="text-muted small fw-bold text-uppercase">Capaian Serapan Kas</span>
+        <h4 class="fw-bold my-1 text-info" id="cardSerapan">0.0%</h4>
+        <span class="text-muted small" id="labelSerapanPeriode">Januari - Desember</span>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-custom bg-white p-3 shadow-sm border-start border-4 border-warning">
+        <span class="text-muted small fw-bold text-uppercase">Total Sub Kegiatan</span>
+        <h4 class="fw-bold my-1 text-warning" id="cardTotalSub">0 Sub Kegiatan</h4>
+        <span class="text-muted small">Rincian Komponen Terstruktur</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grafik -->
+  <div class="row g-3 mb-4">
+    <div class="col-lg-7">
+      <div class="card card-custom p-4 bg-white h-100">
+        <h5 class="fw-bold mb-3"><i class="fa-solid fa-chart-column text-primary me-2"></i>Rencana Target Anggaran Kas Bulanan (12 Bulan)</h5>
+        <div style="position:relative;height:260px;"><canvas id="chartAnggaranKas"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card card-custom p-4 bg-white h-100">
+        <h5 class="fw-bold mb-3"><i class="fa-solid fa-scale-balanced text-primary me-2"></i>Pagu vs Target Kas vs Realisasi</h5>
+        <div style="position:relative;height:260px;"><canvas id="chartPaguRealisasi"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel RKT Terstruktur dengan Indentasi Berjenjang -->
+  <div class="card card-custom p-4 bg-white mb-4">
+    <h5 class="fw-bold mb-3"><i class="fa-solid fa-folder-tree text-primary me-2"></i>STRUKTUR RENCANA KERJA TAHUNAN DAN ANGGARAN KAS</h5>
+    <div class="table-responsive">
+      <table id="tabelRKT" class="table table-bordered align-middle table-hover rounded overflow-hidden">
+        <thead class="table-dark">
+          <tr>
+            <th rowspan="2" class="th-align-center" style="width:160px;">Kode Rekening</th>
+            <th rowspan="2" class="th-align-center" style="min-width:280px;">Uraian Program / Kegiatan / Sub Kegiatan / Komponen</th>
+            <th rowspan="2" class="th-align-center" style="width:130px;">Target Kinerja</th>
+            <th rowspan="2" class="th-align-center" style="width:140px;">Pagu Anggaran (Rp)</th>
+            <th colspan="2" class="text-center">Target Realisasi</th>
+            <th colspan="2" class="text-center">Realisasi Aktual</th>
+            <th colspan="2" class="text-center">% Capaian Target</th>
+            <th colspan="2" class="text-center">% Capaian Pagu</th>
+            <th rowspan="2" class="th-align-center" style="width:90px;">Status</th>
+            <th rowspan="2" class="th-align-center admin-only" style="width:100px;">Aksi Admin</th>
+          </tr>
+          <tr>
+            <th class="text-center small fw-normal">Fisik (%)</th>
+            <th class="text-center small fw-normal">Keuangan (Rp)</th>
+            <th class="text-center small fw-normal">Fisik (%)</th>
+            <th class="text-center small fw-normal">Keuangan (Rp)</th>
+            <th class="text-center small fw-normal">Fisik</th>
+            <th class="text-center small fw-normal">Keuangan</th>
+            <th class="text-center small fw-normal">Fisik</th>
+            <th class="text-center small fw-normal">Keuangan</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRKT">
+          <!-- Render Otomatis via JavaScript -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EVALUASI REALISASI -->
+  <div class="card card-custom p-4 bg-white mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-clipboard-check text-primary me-2"></i>Evaluasi Realisasi & Pelaksanaan RKT Bapelkes</h5>
+      <button class="btn btn-sm btn-outline-primary admin-inline" onclick="bukaModalEvaluasi()"><i class="fa-solid fa-pen-to-square me-1"></i> Kelola Evaluasi</button>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="p-3 border rounded bg-light h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-success mb-0"><i class="fa-solid fa-circle-check me-2"></i>Capaian Positif</h6>
+          </div>
+          <ul class="mb-0 small text-secondary ps-3" id="listCapaianPositif">
+            <!-- Render via JS -->
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="p-3 border rounded bg-light h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-warning mb-0"><i class="fa-solid fa-triangle-exclamation me-2"></i>Kendala & Area Perbaikan</h6>
+          </div>
+          <ul class="mb-0 small text-secondary ps-3" id="listKendalaPerbaikan">
+            <!-- Render via JS -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TANDA TANGAN -->
+  <div class="card card-custom p-4 bg-white mb-4">
+    <div class="row justify-content-between align-items-end">
+      <div class="col-md-5 mb-3 mb-md-0">
+        <p class="small text-muted mb-1 fw-bold">Catatan Verifikasi Sistem:</p>
+        <p class="small text-secondary mb-0">Dokumen Rencana Kerja Tahunan (RKT) dan Anggaran Kas diterbitkan secara sah melalui Sistem Manajemen Bapelkes.</p>
+      </div>
+      <div class="col-md-4 text-center">
+        <p class="mb-1 fw-semibold">Samarinda, 10 September 2026</p>
+        <p class="mb-2 text-muted small">Pengelola Data & Perencanaan Bapelkes</p>
+        <div class="signature-space d-flex align-items-center justify-content-center"></div>
+        <p class="fw-bold mb-0 text-dark"><u>Romadin, S.Adm</u></p>
+        <p class="small text-muted mb-0">NIP. 19850510 202521 1 017</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODALS -->
+
+<!-- MODAL CETAK RAB -->
+<div class="modal fade" id="modalCetakRAB" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Cetak RAB (PDF)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Pilih Sub Kegiatan untuk RAB:</label>
+          <select id="selectRabSubKegiatan" class="form-select form-select-sm">
+            <!-- Dynamic options -->
+          </select>
+        </div>
+        
+        <hr class="my-3">
+        <h6 class="fw-bold text-success mb-3"><i class="fa-solid fa-pen-nib me-2"></i>Pengaturan Penandatangan & Tanggal Cetak</h6>
+        
+        <div class="row g-3">
+          <!-- Column PPK -->
+          <div class="col-md-6">
+            <div class="p-3 border rounded bg-light">
+              <span class="badge bg-primary mb-2">Pejabat Pembuat Komitmen (PPK)</span>
+              <div class="mb-2">
+                <label class="form-label small fw-semibold mb-1">Nama PPK:</label>
+                <input type="text" id="inputNamaPPK" class="form-control form-control-sm" value="NAMA PEJABAT, S.E., M.Si." placeholder="Nama PPK beserta Gelar">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">NIP PPK:</label>
+                <input type="text" id="inputNipPPK" class="form-control form-control-sm" value="19850101 201001 1 001" placeholder="NIP PPK">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Column PPTK -->
+          <div class="col-md-6">
+            <div class="p-3 border rounded bg-light">
+              <span class="badge bg-success mb-2">PPTK Kegiatan</span>
+              <div class="mb-2">
+                <label class="form-label small fw-semibold mb-1">Nama PPTK:</label>
+                <input type="text" id="inputNamaPPTK" class="form-control form-control-sm" value="Romadin, S.Adm" placeholder="Nama PPTK beserta Gelar">
+              </div>
+              <div>
+                <label class="form-label small fw-semibold mb-1">NIP PPTK:</label>
+                <input type="text" id="inputNipPPTK" class="form-control form-control-sm" value="19850510 202521 1 017" placeholder="NIP PPTK">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label small fw-bold">Tanggal Cetak Dokumen:</label>
+          <input type="date" id="inputTanggalCetakRAB" class="form-control form-control-sm w-auto">
+        </div>
+
+        <div class="alert alert-info small py-2 mt-3 mb-0">
+          <i class="fa-solid fa-circle-info me-1"></i>
+          Dokumen RAB akan dicetak otomatis menyelaraskan data input pada Dashboard RKT secara dinamis dengan format 7 Kolom (Kode Rekening, Uraian, Volume, Koefisien, Satuan, Harga Satuan, dan Jumlah Total).
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-success btn-sm" onclick="generateRABPDF()"><i class="fa-solid fa-file-pdf me-1"></i> Cetak Dokumen RAB</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEvaluasi" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-pen-to-square me-2"></i>Kelola Evaluasi Realisasi & Pelaksanaan</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-success mb-0"><i class="fa-solid fa-circle-check me-2"></i>Capaian Positif</h6>
+            <button type="button" class="btn btn-xs btn-outline-success" onclick="tambahRowPositif()"><i class="fa-solid fa-plus me-1"></i> Tambah Poin</button>
+          </div>
+          <div id="containerPositifInputs" class="d-flex flex-column gap-2"></div>
+        </div>
+
+        <hr>
+
+        <div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-warning mb-0"><i class="fa-solid fa-triangle-exclamation me-2"></i>Kendala & Area Perbaikan</h6>
+            <button type="button" class="btn btn-xs btn-outline-warning" onclick="tambahRowKendala()"><i class="fa-solid fa-plus me-1"></i> Tambah Poin</button>
+          </div>
+          <div id="containerKendalaInputs" class="d-flex flex-column gap-2"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="simpanEvaluasi()">Simpan Evaluasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalProgram" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="modalProgramTitle"><i class="fa-solid fa-layer-group me-2"></i>Tambah Program</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formProgram">
+          <input type="hidden" id="editProgramId">
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Kode Rekening Program</label>
+            <input type="text" id="inputKodeProgram" class="form-control form-control-sm" placeholder="Contoh: 1.02.01" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Nama / Uraian Program</label>
+            <input type="text" id="inputNamaProgram" class="form-control form-control-sm" placeholder="Contoh: Program Penyelenggaraan Pelatihan Kesehatan" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Target Kinerja Program</label>
+            <input type="text" id="inputTargetProgram" class="form-control form-control-sm" placeholder="Contoh: 100% Program Terlaksana" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="simpanProgram()">Simpan Program</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalKegiatan" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="modalKegiatanTitle"><i class="fa-solid fa-folder-plus me-2"></i>Tambah Kegiatan Utama</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formKegiatan">
+          <input type="hidden" id="editKegiatanId">
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Pilih Program Parent</label>
+            <select id="inputParentProgramForKeg" class="form-select form-select-sm" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Kode Rekening Kegiatan</label>
+            <input type="text" id="inputKodeKegiatan" class="form-control form-control-sm" placeholder="Contoh: 1.02.01.2.01" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Nama / Uraian Kegiatan Utama</label>
+            <input type="text" id="inputNamaKegiatan" class="form-control form-control-sm" placeholder="Contoh: Perencanaan dan Pelaporan Bapelkes" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Target Kinerja Fisik Utama</label>
+            <input type="text" id="inputTargetKegiatan" class="form-control form-control-sm" placeholder="Contoh: 100% Dokumen Terkumpul" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="simpanKegiatan()">Simpan Kegiatan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalSubKegiatan" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold" id="modalSubKegiatanTitle"><i class="fa-solid fa-folder-plus me-2"></i>Tambah Sub Kegiatan</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formSubKegiatan">
+          <input type="hidden" id="editSubKegiatanId">
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Pilih Kegiatan Utama Parent</label>
+            <select id="inputParentKegiatanForSub" class="form-select form-select-sm" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Kode Rekening Sub Kegiatan</label>
+            <input type="text" id="inputKodeSub" class="form-control form-control-sm" placeholder="Contoh: 1.02.01.2.01.0001" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Nama / Uraian Sub Kegiatan</label>
+            <input type="text" id="inputNamaSub" class="form-control form-control-sm" placeholder="Contoh: Penyusunan RKT & RAB" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Target Kinerja Sub Kegiatan</label>
+            <input type="text" id="inputTargetSub" class="form-control form-control-sm" placeholder="Contoh: 2 Kali Rapat" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-success btn-sm" onclick="simpanSubKegiatan()">Simpan Sub Kegiatan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalKomponen" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="modalKomponenTitle"><i class="fa-solid fa-pen-to-square me-2"></i>Form Edit Komponen & Rincian Belanja</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formKomponen">
+          <input type="hidden" id="editKomponenId">
+          
+          <!-- Informasi Komponen Utama -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-bold">Pilih Sub Kegiatan Parent</label>
+              <select id="inputSubParent" class="form-select form-select-sm" required></select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-bold">Uraian / Nama Komponen</label>
+              <input type="text" id="inputUraian" class="form-control form-control-sm" placeholder="Contoh: Belanja Alat Tulis Kantor" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-bold">Target Kinerja Fisik</label>
+              <input type="text" id="inputTargetFisik" class="form-control form-control-sm" value="-">
+            </div>
+          </div>
+
+          <!-- DYNAMIC RINCIAN KOMPONEN / SUB-ITEM DENGAN KOEFISIEN -->
+          <div class="card p-3 bg-light border mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-list-check me-2 text-primary"></i>Rincian Komponen & Koefisien (Sub-Item Belanja)</h6>
+              <button type="button" class="btn btn-sm btn-outline-success" onclick="tambahRowRincian()"><i class="fa-solid fa-plus me-1"></i> Tambah Rincian Sub-Item</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered bg-white align-middle mb-1">
+                <thead class="table-secondary small text-center">
+                  <tr>
+                    <th>Kode Rekening Sub</th>
+                    <th>Uraian Sub-Item Belanja</th>
+                    <th style="width: 170px;">Koefisien (Kalkulasi)</th>
+                    <th style="width: 90px;">Volume</th>
+                    <th style="width: 100px;">Satuan</th>
+                    <th style="width: 150px;">Harga Satuan (Rp)</th>
+                    <th style="width: 160px;">Total (Rp)</th>
+                    <th style="width: 50px;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyRincianKomponen">
+                  <!-- Dynamic Rows -->
+                </tbody>
+              </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+              <span class="small text-muted fs-7"><i class="fa-solid fa-circle-info me-1"></i>Koefisien mendukung ekspresi (mis. 5 Or x 2 Jp x 5 Keg). Hasil perkalian langsung memperbarui Volume & Total secara otomatis.</span>
+              <div class="d-flex align-items-center gap-2">
+                <label class="form-label small fw-bold mb-0 text-primary">Total Pagu Anggaran Komponen:</label>
+                <div class="input-group input-group-sm w-auto">
+                  <span class="input-group-text fw-bold">Rp</span>
+                  <input type="number" id="inputPagu" class="form-control form-control-sm fw-bold text-end text-primary" placeholder="0" readonly style="width: 150px; background-color:#eef2ff;">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PEMBERIAN BOBOT KAS & REALISASI BULANAN -->
+          <div class="card p-3 border mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <h6 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-calendar-days me-2"></i>Target Kas Bulanan (Jan - Des)</h6>
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-primary" onclick="autoSplit12Bulan()"><i class="fa-solid fa-calculator me-1"></i> Bagi Rata Pagu ke 12 Bulan</button>
+                <button type="button" class="btn btn-outline-info" onclick="proporsionalTargetKas()"><i class="fa-solid fa-percent me-1"></i> Proporsionalkan Bobot Target Kas</button>
+              </div>
+            </div>
+            <div class="row g-2 mb-2" id="containerKasBulan"></div>
+          </div>
+
+          <div class="card p-3 border mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <h6 class="fw-bold mb-0 text-success"><i class="fa-solid fa-money-bill-wave me-2"></i>Realisasi Aktual Bulanan (Jan - Des)</h6>
+              <button type="button" class="btn btn-sm btn-outline-success" onclick="proporsionalRealisasi()"><i class="fa-solid fa-rotate me-1"></i> Proporsionalkan Realisasi ke Pagu Baru</button>
+            </div>
+            <div class="row g-2 mb-2" id="containerRealisasiBulan"></div>
+          </div>
+
+          <div class="p-3 bg-light rounded border mt-3">
+            <div class="row text-center g-2">
+              <div class="col-md-3">
+                <span class="small text-muted d-block">Total Target Kas</span>
+                <span class="fw-bold text-dark" id="modalTotalTargetKas">Rp 0</span>
+              </div>
+              <div class="col-md-3">
+                <span class="small text-muted d-block">Total Realisasi Aktual</span>
+                <span class="fw-bold text-success" id="modalTotalRealisasi">Rp 0</span>
+              </div>
+              <div class="col-md-3">
+                <span class="small text-muted d-block">% Capaian Target</span>
+                <span class="fw-bold text-primary" id="modalCapaianTarget">0%</span>
+              </div>
+              <div class="col-md-3">
+                <span class="small text-muted d-block">% Capaian Pagu</span>
+                <span class="fw-bold text-info" id="modalCapaianPagu">0%</span>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="simpanKomponen()">Simpan Komponen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+var modalCetakRABObj;
+
+function bukaModalCetakRAB() {
+  if (!modalCetakRABObj) {
+    modalCetakRABObj = new bootstrap.Modal(document.getElementById('modalCetakRAB'));
+  }
+  
+  var selectSub = document.getElementById('selectRabSubKegiatan');
+  selectSub.innerHTML = '<option value="ALL">-- SEMUA SUB KEGIATAN --</option>';
+  
+  daftarProgram.forEach(function(prog) {
+    prog.kegiatan.forEach(function(keg) {
+      keg.subKegiatan.forEach(function(sub) {
+        selectSub.innerHTML += '<option value="' + sub.id + '">' + sub.kode + ' - ' + sub.nama + '</option>';
+      });
+    });
+  });
+
+  // Set default tanggal cetak ke hari ini jika belum terisi
+  var tglInput = document.getElementById('inputTanggalCetakRAB');
+  if (!tglInput.value) {
+    var today = new Date().toISOString().split('T')[0];
+    tglInput.value = today;
+  }
+  
+  modalCetakRABObj.show();
+}
+
+function formatRupiahIndo(angka) {
+  if (isNaN(angka) || angka === null) return "0";
+  var parts = Number(angka).toFixed(0).split('.');
+  var integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return integerPart;
+}
+
+// GENERATE DOKUMEN RAB DINAMIS BERDASARKAN INPUT DASHBOARD & TEMPLATE DOKUMEN
+function generateRABPDF() {
+  var selectedSubId = document.getElementById('selectRabSubKegiatan').value;
+  var jsPDFCtor = window.jspdf.jsPDF;
+  // Ubah ke orientasi LANDSCAPE
+  var doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  var pageWidth = doc.internal.pageSize.getWidth();   // 297mm
+  var pageHeight = doc.internal.pageSize.getHeight(); // 210mm
+  var margin = 14;
+  var currentY = 14;
+
+  // Header Metadata Satker
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text("RENCANA ANGGARAN BIAYA (RAB)", pageWidth / 2, currentY, { align: "center" });
+  currentY += 6;
+  doc.setFontSize(10);
+  doc.text("TAHUN ANGGARAN 2026", pageWidth / 2, currentY, { align: "center" });
+  currentY += 10;
+
+  // Filter Target SubKegiatan or All
+  var targetSubList = [];
+  daftarProgram.forEach(function(prog) {
+    prog.kegiatan.forEach(function(keg) {
+      keg.subKegiatan.forEach(function(sub) {
+        if (selectedSubId === 'ALL' || sub.id === selectedSubId) {
+          targetSubList.push({ prog: prog, keg: keg, sub: sub });
+        }
+      });
+    });
+  });
+
+  if (targetSubList.length === 0) {
+    alert("Data Sub Kegiatan tidak ditemukan.");
+    return;
+  }
+
+  targetSubList.forEach(function(item, index) {
+    if (index > 0) {
+      doc.addPage();
+      currentY = 14;
+    }
+
+    // Header Metadata Program/Kegiatan/SubKegiatan dengan Spasi & Alignment yang Proporsional
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(30, 41, 59);
+    
+    var labelWidth = 28;
+    var colonX = margin + labelWidth;
+    var valX = colonX + 4;
+
+    // Baris Program
+    doc.setFont(undefined, 'bold');
+    doc.text("Program", margin, currentY);
+    doc.text(":", colonX, currentY);
+    doc.setFont(undefined, 'normal');
+    doc.text(item.prog.kode + " - " + item.prog.nama, valX, currentY);
+    currentY += 6;
+
+    // Baris Kegiatan
+    doc.setFont(undefined, 'bold');
+    doc.text("Kegiatan", margin, currentY);
+    doc.text(":", colonX, currentY);
+    doc.setFont(undefined, 'normal');
+    doc.text(item.keg.kode + " - " + item.keg.nama, valX, currentY);
+    currentY += 6;
+
+    // Baris Sub Kegiatan
+    doc.setFont(undefined, 'bold');
+    doc.text("Sub Kegiatan", margin, currentY);
+    doc.text(":", colonX, currentY);
+    doc.setFont(undefined, 'normal');
+    doc.text(item.sub.kode + " - " + item.sub.nama, valX, currentY);
+    currentY += 8;
+
+    // Build Table Rows Dinamis dari input Dashboard
+    var tableRows = [];
+    var grandTotalSub = 0;
+
+    item.sub.komponen.forEach(function(komp) {
+      if (komp.rincian && komp.rincian.length > 0) {
+        komp.rincian.forEach(function(r) {
+          var totalSubItem = r.vol * r.harga;
+          grandTotalSub += totalSubItem;
+
+          tableRows.push({
+            kode: r.kodeSub || "5.1.02.01.01",
+            uraian: r.nama,
+            vol: r.vol.toString(),
+            koef: r.koefisien || "-",
+            satuan: r.satuan || "-",
+            harga: formatRupiahIndo(r.harga),
+            total: formatRupiahIndo(totalSubItem)
+          });
+        });
+      } else {
+        grandTotalSub += komp.pagu;
+        tableRows.push({
+          kode: "5.1.02.01.01",
+          uraian: komp.uraian,
+          vol: "1",
+          koef: "-",
+          satuan: "Paket",
+          harga: formatRupiahIndo(komp.pagu),
+          total: formatRupiahIndo(komp.pagu)
+        });
+      }
+    });
+
+    // Format Body Tabel PDF
+    var formattedBody = [];
+    tableRows.forEach(function(row) {
+      formattedBody.push([
+        row.kode,
+        row.uraian,
+        row.vol,
+        row.koef,
+        row.satuan,
+        row.harga,
+        row.total
+      ]);
+    });
+
+    // Baris Jumlah Total Anggaran
+    formattedBody.push([
+      { content: "JUMLAH TOTAL ANGGARAN", colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8.5 } },
+      { content: formatRupiahIndo(grandTotalSub), styles: { halign: 'right', fontStyle: 'bold', fontSize: 8.5 } }
+    ]);
+
+    // Total Lebar Tabel = 297mm - 2*14mm = 269mm
+    // Alokasi Lebar Kolom Proporsional:
+    // 0: Kode Rekening (35mm)
+    // 1: Uraian Sub-Item Belanja (94mm)
+    // 2: Volume (20mm)
+    // 3: Koefisien (40mm)
+    // 4: Satuan (22mm)
+    // 5: Harga Satuan (29mm)
+    // 6: Jumlah Total (29mm) -> Total = 269mm
+    doc.autoTable({
+      startY: currentY,
+      head: [["KODE REKENING", "URAIAN SUB-ITEM BELANJA", "VOLUME", "KOEFISIEN", "SATUAN", "HARGA SATUAN (Rp)", "JUMLAH TOTAL (Rp)"]],
+      body: formattedBody,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        valign: 'middle',
+        overflow: 'linebreak',
+        font: 'helvetica',
+        textColor: [15, 23, 42]
+      },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontSize: 8.5,
+        halign: 'center',
+        fontStyle: 'bold',
+        lineWidth: 0.25,
+        lineColor: [100, 116, 139]
+      },
+      columnStyles: {
+        0: { cellWidth: 35, halign: 'center' },
+        1: { cellWidth: 94, halign: 'left' },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 40, halign: 'center' },
+        4: { cellWidth: 22, halign: 'center' },
+        5: { cellWidth: 29, halign: 'right' },
+        6: { cellWidth: 29, halign: 'right' }
+      },
+      margin: { left: margin, right: margin, bottom: 14 },
+      pageBreak: 'auto'
+    });
+
+    currentY = doc.lastAutoTable.finalY + 12;
+
+    // Ambil nilai dari input modal pilihan PPK, PPTK, dan Tanggal Cetak
+    var namaPPK = document.getElementById('inputNamaPPK').value.trim() || "NAMA PEJABAT, S.E., M.Si.";
+    var nipPPK = document.getElementById('inputNipPPK').value.trim() || "19850101 201001 1 001";
+    var namaPPTK = document.getElementById('inputNamaPPTK').value.trim() || "Romadin, S.Adm";
+    var nipPPTK = document.getElementById('inputNipPPTK').value.trim() || "19850510 202521 1 017";
+    var rawTgl = document.getElementById('inputTanggalCetakRAB').value;
+    
+    var formattedTgl = "10 September 2026";
+    if (rawTgl) {
+      var d = new Date(rawTgl);
+      if (!isNaN(d.getTime())) {
+        formattedTgl = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+    }
+
+    // Tanda Tangan PPK & PPTK jika muat di halaman yang sama
+    if (currentY + 45 > pageHeight) {
+      doc.addPage();
+      currentY = 16;
+    }
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(15, 23, 42);
+    
+    // TTD Kiri (PPK)
+    var ttdLeftX = margin + 15;
+    doc.text("Mengetahui,", ttdLeftX, currentY);
+    doc.text("Pejabat Pembuat Komitmen", ttdLeftX, currentY + 5);
+    doc.setFont(undefined, 'bold');
+    doc.text(namaPPK, ttdLeftX, currentY + 28);
+    doc.setFont(undefined, 'normal');
+    doc.text("NIP. " + nipPPK, ttdLeftX, currentY + 33);
+
+    // TTD Kanan (PPTK)
+    var ttdRightX = pageWidth - margin - 75;
+    doc.text("Samarinda, " + formattedTgl, ttdRightX, currentY);
+    doc.text("PPTK Kegiatan", ttdRightX, currentY + 5);
+    doc.setFont(undefined, 'bold');
+    doc.text(namaPPTK, ttdRightX, currentY + 28);
+    doc.setFont(undefined, 'normal');
+    doc.text("NIP. " + nipPPTK, ttdRightX, currentY + 33);
+  });
+
+  modalCetakRABObj.hide();
+  doc.save("Cetak-Rencana-Anggaran-Biaya-RAB.pdf");
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// DATA EVALUASI
+var dataEvaluasi = {
+  capaianPositif: [
+    "Realisasi keuangan Sub Kegiatan Rapat Koordinasi Penyusunan RKT & RAB mencapai 100% (Rp 60.000.000) sesuai alokasi komponen.",
+    "Proses koordinasi dan perencanaan berjalan efektif dan tepat waktu pada Semester I.",
+    "Serapan kas akumulasi secara keseluruhan mencapai 93.8%, tergolong sangat baik untuk kategori kinerja anggaran kelembagaan."
+  ],
+  kendalaPerbaikan: [
+    "Sub Kegiatan Pencetakan & Penggandaan Laporan RKT baru terealisasi sebesar 75% (Rp 15.000.000 dari total Rp 20.000.000).",
+    "Adanya efisiensi pencetakan fisik serta pergeseran ke format dokumen digital (E-Book/PDF) pada komponen cetak & jilid.",
+    "Sisa pagu sebesar Rp 5.000.000 disarankan untuk dimaksimalkan pada menjelang penutupan tahun anggaran."
+  ]
+};
+
+// DATA RKT TERMASUK RINCIAN SUB-ITEM DENGAN KOEFISIEN DARI DASHBOARD
+var daftarProgram = [
+  {
+    id: "prog-1",
+    kode: "1.02.01",
+    nama: "Program Penyelenggaraan Pelatihan & Diklat Kesehatan",
+    target: "100% Program Terlaksana",
+    kegiatan: [
+      {
+        id: "keg-1",
+        kode: "1.02.01.2.01",
+        nama: "Penyusunan Dokumen Perencanaan & Anggaran Kas",
+        target: "100% Dokumen Terkumpul",
+        subKegiatan: [
+          {
+            id: "sub-1",
+            kode: "1.02.01.2.01.0001",
+            nama: "Rapat Koordinasi Penyusunan RKT & RAB",
+            target: "2 Kali Rapat",
+            komponen: [
+              {
+                id: "komp-101",
+                uraian: "Honorarium Narasumber & Pelaksana",
+                pagu: 50000000,
+                targetFisik: "100%",
+                rincian: [
+                  { kodeSub: "5.1.02.02.01.0003", nama: "Honorarium Narasumber Pakar Kesehatan", koefisien: "5 Or x 2 Jp x 2 Keg", vol: 20, satuan: "OJ", harga: 1500000 },
+                  { kodeSub: "5.1.02.02.01.0003", nama: "Honorarium Moderator / Panitia", koefisien: "10 Or x 2 Keg", vol: 20, satuan: "OK", harga: 1000000 }
+                ],
+                targetKas: [10000000, 10000000, 10000000, 10000000, 10000000, 0, 0, 0, 0, 0, 0, 0],
+                realisasiAktual: [10000000, 10000000, 10000000, 10000000, 10000000, 0, 0, 0, 0, 0, 0, 0]
+              },
+              {
+                id: "komp-102",
+                uraian: "Konsumsi Rapat & Snack",
+                pagu: 10000000,
+                targetFisik: "100%",
+                rincian: [
+                  { kodeSub: "5.1.02.01.01.0052", nama: "Makan Siang Peserta", koefisien: "20 Or x 5 Keg", vol: 100, satuan: "Porsi", harga: 70000 },
+                  { kodeSub: "5.1.02.01.01.0052", nama: "Snack Rapat Koordinasi", koefisien: "20 Or x 5 Keg", vol: 100, satuan: "Porsi", harga: 30000 }
+                ],
+                targetKas: [2000000, 2000000, 2000000, 2000000, 2000000, 0, 0, 0, 0, 0, 0, 0],
+                realisasiAktual: [2000000, 2000000, 2000000, 2000000, 2000000, 0, 0, 0, 0, 0, 0, 0]
+              }
+            ]
+          },
+          {
+            id: "sub-2",
+            kode: "1.02.01.2.01.0002",
+            nama: "Pencetakan & Penggandaan Laporan RKT",
+            target: "50 Eksemplar Buku",
+            komponen: [
+              {
+                id: "komp-201",
+                uraian: "Belanja Cetak & Jilid Buku RKT",
+                pagu: 15000000,
+                targetFisik: "75%",
+                rincian: [
+                  { kodeSub: "5.1.02.01.01.0026", nama: "Cetak Buku Laporan RKT Hardcover", koefisien: "50 Buku", vol: 50, satuan: "Buku", harga: 300000 }
+                ],
+                targetKas: [0, 5000000, 5000000, 5000000, 0, 0, 0, 0, 0, 0, 0, 0],
+                realisasiAktual: [0, 5000000, 5000000, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+              },
+              {
+                id: "komp-202",
+                uraian: "Belanja Alat Tulis Kantor (ATK)",
+                pagu: 5000000,
+                targetFisik: "100%",
+                rincian: [
+                  { kodeSub: "5.1.02.01.01.0024", nama: "Kertas HVS A4 80gr", koefisien: "50 Rim", vol: 50, satuan: "Rim", harga: 60000 },
+                  { kodeSub: "5.1.02.01.01.0024", nama: "Tinta Printer & Perlengkapan Jilid", koefisien: "1 Paket", vol: 1, satuan: "Paket", harga: 2000000 }
+                ],
+                targetKas: [1000000, 1000000, 1000000, 1000000, 1000000, 0, 0, 0, 0, 0, 0, 0],
+                realisasiAktual: [1000000, 1000000, 1000000, 1000000, 1000000, 0, 0, 0, 0, 0, 0, 0]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+];
+
+var bulanNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var chartKas, chartPagu;
+var modalProgramObj, modalKegiatanObj, modalSubKegiatanObj, modalKomponenObj, modalEvaluasiObj;
+
+function formatRupiah(angka){
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(angka);
+}
+
+function sumArray(arr) {
+  return arr.reduce((a, b) => a + (parseInt(b) || 0), 0);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  modalProgramObj = new bootstrap.Modal(document.getElementById('modalProgram'));
+  modalKegiatanObj = new bootstrap.Modal(document.getElementById('modalKegiatan'));
+  modalSubKegiatanObj = new bootstrap.Modal(document.getElementById('modalSubKegiatan'));
+  modalKomponenObj = new bootstrap.Modal(document.getElementById('modalKomponen'));
+  modalEvaluasiObj = new bootstrap.Modal(document.getElementById('modalEvaluasi'));
+
+  renderInputs12Bulan();
+  renderEvaluasi();
+  renderTabelRKT();
+  initCharts();
+});
+
+function renderEvaluasi() {
+  var ulPositif = document.getElementById('listCapaianPositif');
+  var ulKendala = document.getElementById('listKendalaPerbaikan');
+
+  ulPositif.innerHTML = '';
+  ulKendala.innerHTML = '';
+
+  dataEvaluasi.capaianPositif.forEach(function(item) {
+    ulPositif.innerHTML += `<li class="mb-1">${item}</li>`;
+  });
+
+  dataEvaluasi.kendalaPerbaikan.forEach(function(item) {
+    ulKendala.innerHTML += `<li class="mb-1">${item}</li>`;
+  });
+}
+
+function bukaModalEvaluasi() {
+  var cPos = document.getElementById('containerPositifInputs');
+  var cKen = document.getElementById('containerKendalaInputs');
+
+  cPos.innerHTML = '';
+  cKen.innerHTML = '';
+
+  dataEvaluasi.capaianPositif.forEach(function(item) {
+    tambahRowPositif(item);
+  });
+
+  dataEvaluasi.kendalaPerbaikan.forEach(function(item) {
+    tambahRowKendala(item);
+  });
+
+  modalEvaluasiObj.show();
+}
+
+function tambahRowPositif(val) {
+  var cPos = document.getElementById('containerPositifInputs');
+  var value = val || '';
+  var div = document.createElement('div');
+  div.className = 'input-group input-group-sm';
+  div.innerHTML = `
+    <input type="text" class="form-control input-eval-positif" value="${value}" placeholder="Masukkan poin capaian positif...">
+    <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+  `;
+  cPos.appendChild(div);
+}
+
+function tambahRowKendala(val) {
+  var cKen = document.getElementById('containerKendalaInputs');
+  var value = val || '';
+  var div = document.createElement('div');
+  div.className = 'input-group input-group-sm';
+  div.innerHTML = `
+    <input type="text" class="form-control input-eval-kendala" value="${value}" placeholder="Masukkan poin kendala / perbaikan...">
+    <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+  `;
+  cKen.appendChild(div);
+}
+
+function simpanEvaluasi() {
+  var inputsPos = document.querySelectorAll('.input-eval-positif');
+  var inputsKen = document.querySelectorAll('.input-eval-kendala');
+
+  var newPos = [];
+  inputsPos.forEach(function(inp) {
+    if (inp.value.trim() !== '') {
+      newPos.push(inp.value.trim());
+    }
+  });
+
+  var newKen = [];
+  inputsKen.forEach(function(inp) {
+    if (inp.value.trim() !== '') {
+      newKen.push(inp.value.trim());
+    }
+  });
+
+  dataEvaluasi.capaianPositif = newPos;
+  dataEvaluasi.kendalaPerbaikan = newKen;
+
+  renderEvaluasi();
+  modalEvaluasiObj.hide();
+}
+
+function renderInputs12Bulan() {
+  var containerKas = document.getElementById('containerKasBulan');
+  var containerReal = document.getElementById('containerRealisasiBulan');
+  var htmlKas = '';
+  var htmlReal = '';
+
+  for (var i = 0; i < 12; i++) {
+    htmlKas += `
+      <div class="col-md-3">
+        <label class="small text-muted mb-0">${bulanNames[i]}</label>
+        <input type="number" id="targetKas-${i}" class="form-control form-control-sm" value="0" oninput="hitungOtomatisModal()">
+      </div>`;
+    htmlReal += `
+      <div class="col-md-3">
+        <label class="small text-muted mb-0">${bulanNames[i]}</label>
+        <input type="number" id="realisasiAct-${i}" class="form-control form-control-sm" value="0" oninput="hitungOtomatisModal()">
+      </div>`;
+  }
+  containerKas.innerHTML = htmlKas;
+  containerReal.innerHTML = htmlReal;
+}
+
+function renderTabelRKT() {
+  var tbody = document.getElementById('tbodyRKT');
+  tbody.innerHTML = '';
+
+  var grandTotalPagu = 0;
+  var grandTotalTargetKas = 0;
+  var grandTotalRealisasi = 0;
+  var totalSubCount = 0;
+
+  var selectParentProgramForKeg = document.getElementById('inputParentProgramForKeg');
+  var selectParentForSub = document.getElementById('inputParentKegiatanForSub');
+  var selectSubParent = document.getElementById('inputSubParent');
+
+  selectParentProgramForKeg.innerHTML = '';
+  selectParentForSub.innerHTML = '';
+  selectSubParent.innerHTML = '';
+
+  daftarProgram.forEach(function(prog) {
+    selectParentProgramForKeg.innerHTML += `<option value="${prog.id}">${prog.kode} - ${prog.nama}</option>`;
+
+    var progPagu = 0;
+    var progTargetKas = 0;
+    var progRealisasi = 0;
+    var progRowsHtml = '';
+
+    prog.kegiatan.forEach(function(keg) {
+      selectParentForSub.innerHTML += `<option value="${keg.id}">${keg.kode} - ${keg.nama}</option>`;
+
+      var kegPagu = 0;
+      var kegTargetKas = 0;
+      var kegRealisasi = 0;
+      var kegRowsHtml = '';
+
+      keg.subKegiatan.forEach(function(sub) {
+        totalSubCount++;
+        selectSubParent.innerHTML += `<option value="${sub.id}">${sub.kode} - ${sub.nama}</option>`;
+
+        var subPagu = 0;
+        var subTargetKas = 0;
+        var subRealisasi = 0;
+        var subKomponenHtml = '';
+
+        sub.komponen.forEach(function(komp) {
+          var kTargetKas = sumArray(komp.targetKas);
+          var kRealisasi = sumArray(komp.realisasiAktual);
+
+          subPagu += komp.pagu;
+          subTargetKas += kTargetKas;
+          subRealisasi += kRealisasi;
+
+          var kCapTarget = kTargetKas > 0 ? ((kRealisasi / kTargetKas) * 100).toFixed(1) : "0.0";
+          var kCapPagu = komp.pagu > 0 ? ((kRealisasi / komp.pagu) * 100).toFixed(1) : "0.0";
+
+          subKomponenHtml += `
+            <tr class="bg-item text-muted small">
+              <td class="level-komponen-kode">-</td>
+              <td class="level-komponen-uraian">- ${komp.uraian}</td>
+              <td class="text-center">${komp.targetFisik}</td>
+              <td class="text-end">${formatRupiah(komp.pagu)}</td>
+              <td class="text-center">100%</td>
+              <td class="text-end">${formatRupiah(kTargetKas)}</td>
+              <td class="text-center">${kCapPagu}%</td>
+              <td class="text-end text-success">${formatRupiah(kRealisasi)}</td>
+              <td class="text-center text-primary">${kCapTarget}%</td>
+              <td class="text-center text-primary">${kCapTarget}%</td>
+              <td class="text-center text-primary">${kCapPagu}%</td>
+              <td class="text-center text-primary">${kCapPagu}%</td>
+              <td class="text-center"><span class="badge bg-secondary">Komponen</span></td>
+              <td class="text-center admin-only">
+                <button class="btn btn-sm btn-outline-warning p-1" onclick="bukaModalKomponen('${komp.id}')" title="Edit Komponen"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button class="btn btn-sm btn-outline-danger p-1" onclick="hapusKomponen('${komp.id}')" title="Hapus Komponen"><i class="fa-solid fa-trash"></i></button>
+              </td>
+            </tr>
+          `;
+        });
+
+        kegPagu += subPagu;
+        kegTargetKas += subTargetKas;
+        kegRealisasi += subRealisasi;
+
+        var subCapTarget = subTargetKas > 0 ? ((subRealisasi / subTargetKas) * 100).toFixed(1) : "0.0";
+        var subCapPagu = subPagu > 0 ? ((subRealisasi / subPagu) * 100).toFixed(1) : "0.0";
+
+        kegRowsHtml += `
+          <tr class="bg-subkegiatan fw-semibold">
+            <td class="level-subkegiatan-kode"><span class="badge kode-rekening-badge">${sub.kode}</span></td>
+            <td class="level-subkegiatan-uraian"><i class="fa-solid fa-diagram-project me-2 text-success"></i>${sub.nama}</td>
+            <td class="text-center">${sub.target}</td>
+            <td class="text-end text-dark">${formatRupiah(subPagu)}</td>
+            <td class="text-center">100%</td>
+            <td class="text-end">${formatRupiah(subTargetKas)}</td>
+            <td class="text-center">${subCapPagu}%</td>
+            <td class="text-end text-success">${formatRupiah(subRealisasi)}</td>
+            <td class="text-center text-success">${subCapTarget}%</td>
+            <td class="text-center text-success">${subCapTarget}%</td>
+            <td class="text-center text-success">${subCapPagu}%</td>
+            <td class="text-center text-success">${subCapPagu}%</td>
+            <td class="text-center"><span class="badge bg-light text-dark border">Sub Kegiatan</span></td>
+            <td class="text-center admin-only">
+              <button class="btn btn-sm btn-outline-warning p-1" onclick="bukaModalSubKegiatan('${sub.id}')" title="Edit Sub Kegiatan"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button class="btn btn-sm btn-outline-danger p-1" onclick="hapusSubKegiatan('${sub.id}')" title="Hapus Sub Kegiatan"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>
+        ` + subKomponenHtml;
+      });
+
+      progPagu += kegPagu;
+      progTargetKas += kegTargetKas;
+      progRealisasi += kegRealisasi;
+
+      var kegCapTarget = kegTargetKas > 0 ? ((kegRealisasi / kegTargetKas) * 100).toFixed(1) : "0.0";
+      var kegCapPagu = kegPagu > 0 ? ((kegRealisasi / kegPagu) * 100).toFixed(1) : "0.0";
+
+      progRowsHtml += `
+        <tr class="bg-kegiatan fw-bold">
+          <td class="level-kegiatan-kode"><span class="badge kode-rekening-badge">${keg.kode}</span></td>
+          <td class="level-kegiatan-uraian"><i class="fa-solid fa-folder me-2 text-primary"></i>${keg.nama}</td>
+          <td class="text-center">${keg.target}</td>
+          <td class="text-end text-primary">${formatRupiah(kegPagu)}</td>
+          <td class="text-center">100%</td>
+          <td class="text-end">${formatRupiah(kegTargetKas)}</td>
+          <td class="text-center">${kegCapPagu}%</td>
+          <td class="text-end text-success">${formatRupiah(kegRealisasi)}</td>
+          <td class="text-center text-primary">${kegCapTarget}%</td>
+          <td class="text-center text-primary">${kegCapTarget}%</td>
+          <td class="text-center text-primary">${kegCapPagu}%</td>
+          <td class="text-center text-primary">${kegCapPagu}%</td>
+          <td class="text-center"><span class="badge bg-info text-white">Kegiatan</span></td>
+          <td class="text-center admin-only">
+            <button class="btn btn-sm btn-outline-warning p-1" onclick="bukaModalKegiatan('${keg.id}')" title="Edit Kegiatan Utama"><i class="fa-solid fa-pen-to-square"></i></button>
+            <button class="btn btn-sm btn-outline-danger p-1" onclick="hapusKegiatan('${keg.id}')" title="Hapus Kegiatan Utama"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      ` + kegRowsHtml;
+    });
+
+    grandTotalPagu += progPagu;
+    grandTotalTargetKas += progTargetKas;
+    grandTotalRealisasi += progRealisasi;
+
+    var progCapTarget = progTargetKas > 0 ? ((progRealisasi / progTargetKas) * 100).toFixed(1) : "0.0";
+    var progCapPagu = progPagu > 0 ? ((progRealisasi / progPagu) * 100).toFixed(1) : "0.0";
+
+    var progHeaderHtml = `
+      <tr class="table-primary fw-bold fs-6">
+        <td class="level-program-kode"><span class="badge bg-dark">${prog.kode}</span></td>
+        <td class="level-program-uraian"><i class="fa-solid fa-layer-group me-2 text-primary"></i>${prog.nama}</td>
+        <td class="text-center">${prog.target}</td>
+        <td class="text-end text-primary">${formatRupiah(progPagu)}</td>
+        <td class="text-center">100%</td>
+        <td class="text-end">${formatRupiah(progTargetKas)}</td>
+        <td class="text-center">${progCapPagu}%</td>
+        <td class="text-end text-success">${formatRupiah(progRealisasi)}</td>
+        <td class="text-center text-primary">${progCapTarget}%</td>
+        <td class="text-center text-primary">${progCapTarget}%</td>
+        <td class="text-center text-primary">${progCapPagu}%</td>
+        <td class="text-center text-primary">${progCapPagu}%</td>
+        <td class="text-center"><span class="badge bg-primary">Program</span></td>
+        <td class="text-center admin-only">
+          <button class="btn btn-sm btn-outline-warning p-1" onclick="bukaModalProgram('${prog.id}')" title="Edit Program"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button class="btn btn-sm btn-outline-danger p-1" onclick="hapusProgram('${prog.id}')" title="Hapus Program"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+
+    tbody.innerHTML += progHeaderHtml + progRowsHtml;
+  });
+
+  var mainCapTarget = grandTotalTargetKas > 0 ? ((grandTotalRealisasi / grandTotalTargetKas) * 100).toFixed(1) : "0.0";
+  var mainCapPagu = grandTotalPagu > 0 ? ((grandTotalRealisasi / grandTotalPagu) * 100).toFixed(1) : "0.0";
+
+  tbody.innerHTML += `
+    <tr class="table-dark fw-bold">
+      <td colspan="2" class="ps-3">TOTAL KESELURUHAN RKT</td>
+      <td class="text-center">-</td>
+      <td class="text-end">${formatRupiah(grandTotalPagu)}</td>
+      <td class="text-center">100%</td>
+      <td class="text-end">${formatRupiah(grandTotalTargetKas)}</td>
+      <td class="text-center">${mainCapPagu}%</td>
+      <td class="text-end">${formatRupiah(grandTotalRealisasi)}</td>
+      <td class="text-center">${mainCapTarget}%</td>
+      <td class="text-center">${mainCapTarget}%</td>
+      <td class="text-center">${mainCapPagu}%</td>
+      <td class="text-center">${mainCapPagu}%</td>
+      <td class="text-center">-</td>
+      <td class="text-center admin-only">-</td>
+    </tr>
+  `;
+
+  document.getElementById('cardPagu').innerText = formatRupiah(grandTotalPagu);
+  document.getElementById('cardRealisasi').innerText = formatRupiah(grandTotalRealisasi);
+  document.getElementById('cardSisa').innerText = "Sisa: " + formatRupiah(grandTotalPagu - grandTotalRealisasi);
+  document.getElementById('cardSerapan').innerText = mainCapPagu + "%";
+  document.getElementById('cardTotalProgramInfo').innerText = daftarProgram.length + " Program Terdaftar";
+  document.getElementById('cardTotalSub').innerText = totalSubCount + " Sub Kegiatan";
+
+  updateCharts(grandTotalPagu, grandTotalTargetKas, grandTotalRealisasi);
+}
+
+function getMonthlyKasTotal() {
+  var totalKas = Array(12).fill(0);
+  daftarProgram.forEach(function(prog) {
+    prog.kegiatan.forEach(function(keg) {
+      keg.subKegiatan.forEach(function(sub) {
+        sub.komponen.forEach(function(komp) {
+          for (var i = 0; i < 12; i++) {
+            totalKas[i] += parseInt(komp.targetKas[i]) || 0;
+          }
+        });
+      });
+    });
+  });
+  return totalKas;
+}
+
+function initCharts() {
+  var bulanList = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  
+  var ctxKas = document.getElementById('chartAnggaranKas').getContext('2d');
+  chartKas = new Chart(ctxKas, {
+    type: 'bar',
+    data: {
+      labels: bulanList,
+      datasets: [{
+        label: 'Rencana Anggaran Kas Bulanan (Rp)',
+        data: getMonthlyKasTotal(),
+        backgroundColor: 'rgba(37,99,235,0.75)',
+        borderColor: 'rgba(37,99,235,1)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { callbacks: { label: function(c){ return 'Target Kas: ' + formatRupiah(c.raw); } } }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          ticks: { callback: function(v){ return 'Rp ' + (v/1000000) + ' Jt'; } } 
+        }
+      }
+    }
+  });
+
+  var ctxPagu = document.getElementById('chartPaguRealisasi').getContext('2d');
+  chartPagu = new Chart(ctxPagu, {
+    type: 'bar',
+    data: {
+      labels: ['Pagu Anggaran', 'Target Kas', 'Realisasi Aktual'],
+      datasets: [{
+        label: 'Nilai Nominal (Rp)',
+        data: [80000000, 80000000, 75000000],
+        backgroundColor: [
+          'rgba(37, 99, 235, 0.75)',
+          'rgba(249, 115, 22, 0.75)',
+          'rgba(16, 185, 129, 0.75)'
+        ],
+        borderColor: [
+          'rgba(37, 99, 235, 1)',
+          'rgba(249, 115, 22, 1)',
+          'rgba(16, 185, 129, 1)'
+        ],
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { 
+          callbacks: { 
+            label: function(c){ 
+              return c.label + ': ' + formatRupiah(c.raw); 
+            } 
+          } 
+        }
+      },
+      scales: {
+        x: { 
+          beginAtZero: true, 
+          ticks: { 
+            callback: function(v){ 
+              return (v / 1000000) + ' Jt'; 
+            } 
+          } 
+        }
+      }
+    }
+  });
+}
+
+function updateCharts(pagu, targetKas, realisasi) {
+  if (chartKas && chartPagu) {
+    chartKas.data.datasets[0].data = getMonthlyKasTotal();
+    chartKas.update();
+
+    chartPagu.data.datasets[0].data = [pagu, targetKas, realisasi];
+    chartPagu.update();
+  }
+}
+
+// KALKULATOR KOEFISIEN OTOMATIS
+function hitungKoefisienKeVolume(koefStr) {
+  if (!koefStr || !koefStr.trim()) return 1;
+  var numbers = koefStr.match(/\d+(?:[\.,]\d+)?/g);
+  if (!numbers || numbers.length === 0) return 1;
+  
+  var totalVol = 1;
+  numbers.forEach(function(num) {
+    var parsed = parseFloat(num.replace(',', '.'));
+    if (!isNaN(parsed) && parsed > 0) {
+      totalVol *= parsed;
+    }
+  });
+  return totalVol;
+}
+
+// RINCIAN KOMPONEN LOGIC & KOEFISIEN
+function tambahRowRincian(data) {
+  var tbody = document.getElementById('tbodyRincianKomponen');
+  var item = data || { kodeSub: '5.1.02.01.01', nama: '', koefisien: '', vol: 1, satuan: 'Paket', harga: 0 };
+  
+  var tr = document.createElement('tr');
+  tr.className = 'row-rincian-item';
+  tr.innerHTML = `
+    <td>
+      <input type="text" class="form-control form-control-sm rincian-kodesub" value="${item.kodeSub || '5.1.02.01.01'}" placeholder="Kode Sub" required>
+    </td>
+    <td>
+      <input type="text" class="form-control form-control-sm rincian-nama" value="${item.nama}" placeholder="Contoh: Belanja Kertas A4" required>
+    </td>
+    <td>
+      <input type="text" class="form-control form-control-sm rincian-koefisien" value="${item.koefisien || ''}" placeholder="mis. 5 Or x 2 Jp x 5 Keg" oninput="prosesKoefisienRow(this)">
+    </td>
+    <td>
+      <input type="number" class="form-control form-control-sm text-center rincian-vol" value="${item.vol}" min="1" oninput="hitungPaguOtomatisRincian()" required>
+    </td>
+    <td>
+      <input type="text" class="form-control form-control-sm text-center rincian-satuan" value="${item.satuan}" placeholder="Rim/Keg/Orang">
+    </td>
+    <td>
+      <input type="number" class="form-control form-control-sm text-end rincian-harga" value="${item.harga}" placeholder="0" oninput="hitungPaguOtomatisRincian()" required>
+    </td>
+    <td class="text-end fw-bold text-dark rincian-subtotal align-middle">
+      ${formatRupiah(item.vol * item.harga)}
+    </td>
+    <td class="text-center align-middle">
+      <button type="button" class="btn btn-sm btn-outline-danger p-1" onclick="hapusRowRincian(this)"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  hitungPaguOtomatisRincian();
+}
+
+function prosesKoefisienRow(inputEl) {
+  var row = inputEl.closest('tr');
+  var koefVal = inputEl.value;
+  var volInput = row.querySelector('.rincian-vol');
+  
+  if (koefVal.trim() !== '') {
+    var calculatedVol = hitungKoefisienKeVolume(koefVal);
+    volInput.value = calculatedVol;
+  }
+  hitungPaguOtomatisRincian();
+}
+
+function hapusRowRincian(btn) {
+  var row = btn.closest('tr');
+  row.remove();
+  hitungPaguOtomatisRincian();
+}
+
+function hitungPaguOtomatisRincian() {
+  var rows = document.querySelectorAll('.row-rincian-item');
+  var totalPagu = 0;
+
+  rows.forEach(function(row) {
+    var vol = parseFloat(row.querySelector('.rincian-vol').value) || 0;
+    var harga = parseFloat(row.querySelector('.rincian-harga').value) || 0;
+    var subtotal = vol * harga;
+    
+    row.querySelector('.rincian-subtotal').innerText = formatRupiah(subtotal);
+    totalPagu += subtotal;
+  });
+
+  var inputPagu = document.getElementById('inputPagu');
+  inputPagu.value = totalPagu;
+
+  hitungOtomatisModal();
+}
+
+// PROPORSI KAS & REALISASI
+function proporsionalTargetKas() {
+  var paguBaru = parseInt(document.getElementById('inputPagu').value) || 0;
+  if (paguBaru === 0) return;
+
+  var currentKas = [];
+  var totalKasLama = 0;
+
+  for (var i = 0; i < 12; i++) {
+    var val = parseInt(document.getElementById('targetKas-' + i).value) || 0;
+    currentKas.push(val);
+    totalKasLama += val;
+  }
+
+  if (totalKasLama === 0) {
+    autoSplit12Bulan();
+    return;
+  }
+
+  var sisaPagu = paguBaru;
+  for (var i = 0; i < 12; i++) {
+    if (i === 11) {
+      document.getElementById('targetKas-' + i).value = sisaPagu;
+    } else {
+      var proporsi = Math.round((currentKas[i] / totalKasLama) * paguBaru);
+      document.getElementById('targetKas-' + i).value = proporsi;
+      sisaPagu -= proporsi;
+    }
+  }
+  hitungOtomatisModal();
+}
+
+function proporsionalRealisasi() {
+  var paguBaru = parseInt(document.getElementById('inputPagu').value) || 0;
+  if (paguBaru === 0) return;
+
+  var currentReal = [];
+  var totalRealLama = 0;
+
+  for (var i = 0; i < 12; i++) {
+    var val = parseInt(document.getElementById('realisasiAct-' + i).value) || 0;
+    currentReal.push(val);
+    totalRealLama += val;
+  }
+
+  if (totalRealLama === 0) return;
+
+  var factor = paguBaru / totalRealLama;
+  for (var i = 0; i < 12; i++) {
+    var newVal = Math.round(currentReal[i] * factor);
+    document.getElementById('realisasiAct-' + i).value = newVal;
+  }
+  hitungOtomatisModal();
+}
+
+// MANAGEMENT ADMIN FUNCTIONS
+function bukaModalProgram(progId) {
+  document.getElementById('formProgram').reset();
+  document.getElementById('editProgramId').value = progId || '';
+
+  if (progId) {
+    var item = daftarProgram.find(p => p.id === progId);
+    if (item) {
+      document.getElementById('modalProgramTitle').innerHTML = '<i class="fa-solid fa-pen-to-square me-2"></i>Edit Program';
+      document.getElementById('inputKodeProgram').value = item.kode;
+      document.getElementById('inputNamaProgram').value = item.nama;
+      document.getElementById('inputTargetProgram').value = item.target;
+    }
+  } else {
+    document.getElementById('modalProgramTitle').innerHTML = '<i class="fa-solid fa-layer-group me-2"></i>Tambah Program';
+  }
+
+  modalProgramObj.show();
+}
+
+function simpanProgram() {
+  var id = document.getElementById('editProgramId').value;
+  var kode = document.getElementById('inputKodeProgram').value;
+  var nama = document.getElementById('inputNamaProgram').value;
+  var target = document.getElementById('inputTargetProgram').value;
+
+  if (!kode || !nama) {
+    alert("Kode dan nama program harus diisi.");
+    return;
+  }
+
+  if (id) {
+    var item = daftarProgram.find(p => p.id === id);
+    if (item) {
+      item.kode = kode;
+      item.nama = nama;
+      item.target = target || '-';
+    }
+  } else {
+    daftarProgram.push({
+      id: 'prog-' + Date.now(),
+      kode: kode,
+      nama: nama,
+      target: target || '-',
+      kegiatan: []
+    });
+  }
+
+  renderTabelRKT();
+  modalProgramObj.hide();
+}
+
+function hapusProgram(progId) {
+  if (confirm("Hapus program ini beserta seluruh kegiatan, sub kegiatan, dan komponen di dalamnya?")) {
+    daftarProgram = daftarProgram.filter(p => p.id !== progId);
+    renderTabelRKT();
+  }
+}
+
+function bukaModalKegiatan(kegId) {
+  if (daftarProgram.length === 0) {
+    alert("Tambahkan Program terlebih dahulu.");
+    return;
+  }
+
+  document.getElementById('formKegiatan').reset();
+  document.getElementById('editKegiatanId').value = kegId || '';
+
+  if (kegId) {
+    document.getElementById('modalKegiatanTitle').innerHTML = '<i class="fa-solid fa-pen-to-square me-2"></i>Edit Kegiatan Utama';
+    daftarProgram.forEach(function(prog) {
+      var found = prog.kegiatan.find(k => k.id === kegId);
+      if (found) {
+        document.getElementById('inputParentProgramForKeg').value = prog.id;
+        document.getElementById('inputKodeKegiatan').value = found.kode;
+        document.getElementById('inputNamaKegiatan').value = found.nama;
+        document.getElementById('inputTargetKegiatan').value = found.target;
+      }
+    });
+  } else {
+    document.getElementById('modalKegiatanTitle').innerHTML = '<i class="fa-solid fa-folder-plus me-2"></i>Tambah Kegiatan Utama';
+  }
+
+  modalKegiatanObj.show();
+}
+
+function simpanKegiatan() {
+  var id = document.getElementById('editKegiatanId').value;
+  var parentId = document.getElementById('inputParentProgramForKeg').value;
+  var kode = document.getElementById('inputKodeKegiatan').value;
+  var nama = document.getElementById('inputNamaKegiatan').value;
+  var target = document.getElementById('inputTargetKegiatan').value;
+
+  if (!kode || !nama) {
+    alert("Kode dan nama kegiatan harus diisi.");
+    return;
+  }
+
+  if (id) {
+    var currentKeg = null;
+    daftarProgram.forEach(function(prog) {
+      var idx = prog.kegiatan.findIndex(k => k.id === id);
+      if (idx !== -1) {
+        currentKeg = prog.kegiatan.splice(idx, 1)[0];
+      }
+    });
+
+    if (currentKeg) {
+      currentKeg.kode = kode;
+      currentKeg.nama = nama;
+      currentKeg.target = target || '-';
+
+      var newParent = daftarProgram.find(p => p.id === parentId);
+      if (newParent) {
+        newParent.kegiatan.push(currentKeg);
+      }
+    }
+  } else {
+    var parentProg = daftarProgram.find(p => p.id === parentId);
+    if (parentProg) {
+      parentProg.kegiatan.push({
+        id: 'keg-' + Date.now(),
+        kode: kode,
+        nama: nama,
+        target: target || '-',
+        subKegiatan: []
+      });
+    }
+  }
+
+  renderTabelRKT();
+  modalKegiatanObj.hide();
+}
+
+function hapusKegiatan(kegId) {
+  if (confirm("Hapus kegiatan utama ini beserta seluruh sub kegiatan dan komponen di dalamnya?")) {
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan = prog.kegiatan.filter(k => k.id !== kegId);
+    });
+    renderTabelRKT();
+  }
+}
+
+function bukaModalSubKegiatan(subId) {
+  var hasKeg = false;
+  daftarProgram.forEach(p => { if (p.kegiatan.length > 0) hasKeg = true; });
+
+  if (!hasKeg) {
+    alert("Tambahkan Kegiatan Utama terlebih dahulu.");
+    return;
+  }
+
+  document.getElementById('formSubKegiatan').reset();
+  document.getElementById('editSubKegiatanId').value = subId || '';
+
+  if (subId) {
+    document.getElementById('modalSubKegiatanTitle').innerHTML = '<i class="fa-solid fa-pen-to-square me-2"></i>Edit Sub Kegiatan';
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan.forEach(function(keg) {
+        var found = keg.subKegiatan.find(s => s.id === subId);
+        if (found) {
+          document.getElementById('inputParentKegiatanForSub').value = keg.id;
+          document.getElementById('inputKodeSub').value = found.kode;
+          document.getElementById('inputNamaSub').value = found.nama;
+          document.getElementById('inputTargetSub').value = found.target;
+        }
+      });
+    });
+  } else {
+    document.getElementById('modalSubKegiatanTitle').innerHTML = '<i class="fa-solid fa-folder-plus me-2"></i>Tambah Sub Kegiatan';
+  }
+
+  modalSubKegiatanObj.show();
+}
+
+function simpanSubKegiatan() {
+  var id = document.getElementById('editSubKegiatanId').value;
+  var parentId = document.getElementById('inputParentKegiatanForSub').value;
+  var kode = document.getElementById('inputKodeSub').value;
+  var nama = document.getElementById('inputNamaSub').value;
+  var target = document.getElementById('inputTargetSub').value;
+
+  if (!kode || !nama) {
+    alert("Kode dan nama sub kegiatan harus diisi.");
+    return;
+  }
+
+  if (id) {
+    var currentSub = null;
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan.forEach(function(keg) {
+        var idx = keg.subKegiatan.findIndex(s => s.id === id);
+        if (idx !== -1) {
+          currentSub = keg.subKegiatan.splice(idx, 1)[0];
+        }
+      });
+    });
+
+    if (currentSub) {
+      currentSub.kode = kode;
+      currentSub.nama = nama;
+      currentSub.target = target || '-';
+
+      daftarProgram.forEach(function(prog) {
+        var newParent = prog.kegiatan.find(k => k.id === parentId);
+        if (newParent) {
+          newParent.subKegiatan.push(currentSub);
+        }
+      });
+    }
+  } else {
+    daftarProgram.forEach(function(prog) {
+      var parentKeg = prog.kegiatan.find(k => k.id === parentId);
+      if (parentKeg) {
+        parentKeg.subKegiatan.push({
+          id: 'sub-' + Date.now(),
+          kode: kode,
+          nama: nama,
+          target: target || '-',
+          komponen: []
+        });
+      }
+    });
+  }
+
+  renderTabelRKT();
+  modalSubKegiatanObj.hide();
+}
+
+function hapusSubKegiatan(subId) {
+  if (confirm("Hapus sub kegiatan ini beserta komponen di dalamnya?")) {
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan.forEach(function(keg) {
+        keg.subKegiatan = keg.subKegiatan.filter(s => s.id !== subId);
+      });
+    });
+    renderTabelRKT();
+  }
+}
+
+function bukaModalKomponen(kompId) {
+  var hasSub = false;
+  daftarProgram.forEach(p => {
+    p.kegiatan.forEach(k => {
+      if (k.subKegiatan.length > 0) hasSub = true;
+    });
+  });
+
+  if (!hasSub) {
+    alert("Tambahkan Sub Kegiatan terlebih dahulu.");
+    return;
+  }
+
+  document.getElementById('formKomponen').reset();
+  document.getElementById('tbodyRincianKomponen').innerHTML = '';
+  document.getElementById('editKomponenId').value = kompId || '';
+
+  if (kompId) {
+    document.getElementById('modalKomponenTitle').innerHTML = '<i class="fa-solid fa-pen-to-square me-2"></i>Edit Baris Komponen & Rincian Belanja';
+    
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan.forEach(function(keg) {
+        keg.subKegiatan.forEach(function(sub) {
+          sub.komponen.forEach(function(k) {
+            if (k.id === kompId) {
+              document.getElementById('inputSubParent').value = sub.id;
+              document.getElementById('inputUraian').value = k.uraian;
+              document.getElementById('inputTargetFisik').value = k.targetFisik;
+
+              // Render Rincian Sub Item
+              if (k.rincian && k.rincian.length > 0) {
+                k.rincian.forEach(r => tambahRowRincian(r));
+              } else {
+                tambahRowRincian({ kodeSub: '5.1.02.01.01', nama: k.uraian, koefisien: '', vol: 1, satuan: 'Paket', harga: k.pagu });
+              }
+
+              for (var i = 0; i < 12; i++) {
+                document.getElementById('targetKas-' + i).value = k.targetKas[i] || 0;
+                document.getElementById('realisasiAct-' + i).value = k.realisasiAktual[i] || 0;
+              }
+            }
+          });
+        });
+      });
+    });
+  } else {
+    document.getElementById('modalKomponenTitle').innerHTML = '<i class="fa-solid fa-plus me-2"></i>Tambah Komponen Baru';
+    tambahRowRincian();
+    for (var i = 0; i < 12; i++) {
+      document.getElementById('targetKas-' + i).value = 0;
+      document.getElementById('realisasiAct-' + i).value = 0;
+    }
+  }
+
+  hitungPaguOtomatisRincian();
+  modalKomponenObj.show();
+}
+
+function hitungOtomatisModal() {
+  var pagu = parseInt(document.getElementById('inputPagu').value) || 0;
+  var sumTargetKas = 0;
+  var sumRealisasi = 0;
+
+  for (var i = 0; i < 12; i++) {
+    sumTargetKas += parseInt(document.getElementById('targetKas-' + i).value) || 0;
+    sumRealisasi += parseInt(document.getElementById('realisasiAct-' + i).value) || 0;
+  }
+
+  var capTarget = sumTargetKas > 0 ? ((sumRealisasi / sumTargetKas) * 100).toFixed(1) : "0.0";
+  var capPagu = pagu > 0 ? ((sumRealisasi / pagu) * 100).toFixed(1) : "0.0";
+
+  document.getElementById('modalTotalTargetKas').innerText = formatRupiah(sumTargetKas);
+  document.getElementById('modalTotalRealisasi').innerText = formatRupiah(sumRealisasi);
+  document.getElementById('modalCapaianTarget').innerText = capTarget + "%";
+  document.getElementById('modalCapaianPagu').innerText = capPagu + "%";
+}
+
+function autoSplit12Bulan() {
+  var pagu = parseInt(document.getElementById('inputPagu').value) || 0;
+  var perBulan = Math.floor(pagu / 12);
+  var sisa = pagu % 12;
+
+  for (var i = 0; i < 12; i++) {
+    var val = (i === 11) ? (perBulan + sisa) : perBulan;
+    document.getElementById('targetKas-' + i).value = val;
+  }
+  hitungOtomatisModal();
+}
+
+function simpanKomponen() {
+  var id = document.getElementById('editKomponenId').value;
+  var parentSubId = document.getElementById('inputSubParent').value;
+  var uraian = document.getElementById('inputUraian').value;
+  var pagu = parseInt(document.getElementById('inputPagu').value) || 0;
+  var targetFisik = document.getElementById('inputTargetFisik').value || '-';
+
+  // Ambil Data Dynamic Rincian & Koefisien
+  var rincianArr = [];
+  var rowsRincian = document.querySelectorAll('.row-rincian-item');
+  rowsRincian.forEach(function(row) {
+    var rKodeSub = row.querySelector('.rincian-kodesub').value;
+    var rNama = row.querySelector('.rincian-nama').value;
+    var rKoef = row.querySelector('.rincian-koefisien').value;
+    var rVol = parseFloat(row.querySelector('.rincian-vol').value) || 0;
+    var rSatuan = row.querySelector('.rincian-satuan').value;
+    var rHarga = parseFloat(row.querySelector('.rincian-harga').value) || 0;
+
+    if (rNama.trim() !== '') {
+      rincianArr.push({ kodeSub: rKodeSub, nama: rNama, koefisien: rKoef, vol: rVol, satuan: rSatuan, harga: rHarga });
+    }
+  });
+
+  var arrKas = [];
+  var arrReal = [];
+  for (var i = 0; i < 12; i++) {
+    arrKas.push(parseInt(document.getElementById('targetKas-' + i).value) || 0);
+    arrReal.push(parseInt(document.getElementById('realisasiAct-' + i).value) || 0);
+  }
+
+  daftarProgram.forEach(function(prog) {
+    prog.kegiatan.forEach(function(keg) {
+      keg.subKegiatan.forEach(function(sub) {
+        sub.komponen = sub.komponen.filter(k => k.id !== id);
+      });
+    });
+  });
+
+  daftarProgram.forEach(function(prog) {
+    prog.kegiatan.forEach(function(keg) {
+      var subTarget = keg.subKegiatan.find(s => s.id === parentSubId);
+      if (subTarget) {
+        subTarget.komponen.push({
+          id: id ? id : ('komp-' + Date.now()),
+          uraian: uraian,
+          pagu: pagu,
+          targetFisik: targetFisik,
+          rincian: rincianArr,
+          targetKas: arrKas,
+          realisasiAktual: arrReal
+        });
+      }
+    });
+  });
+
+  renderTabelRKT();
+  modalKomponenObj.hide();
+}
+
+function hapusKomponen(kompId) {
+  if (confirm("Apakah Anda yakin ingin menghapus komponen ini?")) {
+    daftarProgram.forEach(function(prog) {
+      prog.kegiatan.forEach(function(keg) {
+        keg.subKegiatan.forEach(function(sub) {
+          sub.komponen = sub.komponen.filter(k => k.id !== kompId);
+        });
+      });
+    });
+    renderTabelRKT();
+  }
+}
+
+function toggleAdminMode(checkbox) {
+  if (checkbox.checked) {
+    var pwd = prompt("Masukkan Kata Sandi Admin:");
+    if (pwd === "keu123456") {
+      document.body.classList.add('admin-mode');
+    } else {
+      alert("Kata sandi salah!");
+      checkbox.checked = false;
+      document.body.classList.remove('admin-mode');
+    }
+  } else {
+    document.body.classList.remove('admin-mode');
+  }
+}
+
+function filterBulanChanged(val) {
+  var fullKas = getMonthlyKasTotal();
+  if (val === "all") {
+    chartKas.data.datasets[0].data = fullKas;
+    document.getElementById('labelSerapanPeriode').innerText = "Januari - Desember";
+  } else {
+    var idx = parseInt(val);
+    var filteredData = Array(12).fill(0);
+    filteredData[idx] = fullKas[idx];
+    chartKas.data.datasets[0].data = filteredData;
+    document.getElementById('labelSerapanPeriode').innerText = "Bulan ke-" + (idx + 1) + " (" + bulanNames[idx] + ")";
+  }
+  chartKas.update();
+}
+
+// EXPORT PDF LENGKAP
+window.unduhLaporanPdf = function(){
+  try {
+    var jsPDFCtor = window.jspdf.jsPDF;
+    var doc = new jsPDFCtor({orientation:'landscape', unit:'mm', format:'a4'});
+    
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var pageHeight = doc.internal.pageSize.getHeight();
+    var margin = 10;
+    var currentY = 12;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('LAPORAN RENCANA KERJA TAHUNAN & ANGGARAN KAS BAPELKES', margin, currentY);
+    
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Dicetak secara otomatis melalui Sistem Manajemen Bapelkes pada: ' + new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'}), margin, currentY + 5);
+    
+    currentY += 12;
+
+    var cardWidth = (pageWidth - (margin * 2) - 9) / 4;
+    var cardHeight = 18;
+
+    var valPagu = document.getElementById('cardPagu').innerText;
+    var valProgInfo = document.getElementById('cardTotalProgramInfo').innerText;
+    var valReal = document.getElementById('cardRealisasi').innerText;
+    var valSisa = document.getElementById('cardSisa').innerText;
+    var valSerapan = document.getElementById('cardSerapan').innerText;
+    var valPeriode = document.getElementById('labelSerapanPeriode').innerText;
+    var valSub = document.getElementById('cardTotalSub').innerText;
+
+    var cardsData = [
+      { title: 'TOTAL PAGU RKT', value: valPagu, sub: valProgInfo, color: [59, 130, 246] },
+      { title: 'TOTAL REALISASI', value: valReal, sub: valSisa, color: [16, 185, 129] },
+      { title: 'CAPAIAN SERAPAN KAS', value: valSerapan, sub: valPeriode, color: [6, 182, 212] },
+      { title: 'TOTAL SUB KEGIATAN', value: valSub, sub: 'Rincian Komponen', color: [245, 158, 11] }
+    ];
+
+    cardsData.forEach(function(card, i) {
+      var x = margin + (i * (cardWidth + 3));
+      
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, currentY, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+
+      doc.setFillColor(card.color[0], card.color[1], card.color[2]);
+      doc.rect(x, currentY, 1.5, cardHeight, 'F');
+
+      doc.setFontSize(6.5);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text(card.title, x + 4, currentY + 4.5);
+
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(card.color[0], card.color[1], card.color[2]);
+      doc.text(card.value, x + 4, currentY + 10.5);
+
+      doc.setFontSize(6);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text(card.sub, x + 4, currentY + 15);
+    });
+
+    currentY += cardHeight + 6;
+
+    var chartCanvasPagu = document.getElementById('chartPaguRealisasi');
+    if (chartCanvasPagu) {
+      var chartImgData = chartCanvasPagu.toDataURL('image/png', 1.0);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('Ringkasan Perbandingan: Pagu vs Target Kas vs Realisasi', margin, currentY);
+      
+      doc.addImage(chartImgData, 'PNG', margin, currentY + 2, 120, 36);
+      currentY += 42;
+    }
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Rincian Struktur Rencana Kerja Tahunan & Anggaran Kas', margin, currentY);
+    currentY += 3;
+
+    doc.autoTable({
+      html: '#tabelRKT',
+      startY: currentY,
+      theme: 'grid',
+      styles: { fontSize: 5.5, cellPadding: 1, valign: 'middle', overflow: 'linebreak' },
+      headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 5.5, halign: 'center', fontStyle: 'bold' },
+      bodyStyles: { halign: 'center' },
+      columnStyles: { 
+        0: { cellWidth: 26, halign: 'left' },
+        1: { halign: 'left', cellWidth: 60 }, 
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'right' },
+        5: { halign: 'right' },
+        7: { halign: 'right' }
+      },
+      margin: { left: margin, right: margin, bottom: 15 },
+      didDrawPage: function(data) {
+        doc.setFontSize(6.5);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text('Halaman ' + data.pageNumber, pageWidth - margin - 10, pageHeight - 6);
+      }
+    });
+
+    currentY = doc.lastAutoTable.finalY + 6;
+
+    var evalBoxHeight = 42;
+    if (currentY + evalBoxHeight + 35 > pageHeight) {
+      doc.addPage();
+      currentY = 15;
+    }
+
+    var boxWidth = pageWidth - (margin * 2);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, currentY, boxWidth, evalBoxHeight, 1.5, 1.5, 'FD');
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Evaluasi Realisasi & Pelaksanaan RKT Bapelkes', margin + 4, currentY + 5);
+
+    var colWidth = (boxWidth / 2) - 8;
+    var col1X = margin + 4;
+    var col2X = margin + (boxWidth / 2) + 4;
+    var lineSpacing = 3.5;
+
+    doc.setFontSize(7.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(16, 185, 129);
+    doc.text('Capaian Positif', col1X, currentY + 10);
+
+    doc.setFontSize(6.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(71, 85, 105);
+
+    var curY1 = currentY + 14;
+    dataEvaluasi.capaianPositif.forEach(function(item) {
+      var lines = doc.splitTextToSize('• ' + item, colWidth);
+      doc.text(lines, col1X, curY1);
+      curY1 += lines.length * lineSpacing + 1;
+    });
+
+    doc.setFontSize(7.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(245, 158, 11);
+    doc.text('Kendala & Area Perbaikan', col2X, currentY + 10);
+
+    doc.setFontSize(6.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(71, 85, 105);
+
+    var curY2 = currentY + 14;
+    dataEvaluasi.kendalaPerbaikan.forEach(function(item) {
+      var lines = doc.splitTextToSize('• ' + item, colWidth);
+      doc.text(lines, col2X, curY2);
+      curY2 += lines.length * lineSpacing + 1;
+    });
+
+    currentY += evalBoxHeight + 6;
+
+    doc.setFontSize(7);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Catatan Verifikasi Sistem:', margin, currentY + 4);
+    
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text('Dokumen Rencana Kerja Tahunan (RKT) dan Anggaran Kas diterbitkan secara sah', margin, currentY + 8);
+    doc.text('melalui Sistem Manajemen Bapelkes.', margin, currentY + 11);
+
+    var ttdX = pageWidth - margin - 75;
+
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Samarinda, 10 September 2026', ttdX + 15, currentY + 4);
+    doc.text('Pengelola Data & Perencanaan Bapelkes', ttdX + 8, currentY + 8);
+
+    doc.setFont(undefined, 'bold');
+    doc.text('Romadin, S.Adm', ttdX + 22, currentY + 28);
+    
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('NIP. 19850510 202521 1 017', ttdX + 15, currentY + 32);
+
+    doc.save('Laporan-RKT-Bapelkes-Romadin.pdf');
+
+  } catch(err) {
+    alert('Gagal membuat PDF: ' + err.message);
+  }
+};
+</script>
+<script>
+/* RKT CLOUD SYNC BRIDGE
+   Set RKT_API_URL to the deployed Google Apps Script Web App URL in this file.
+   Reads use JSONP; writes use a simple text/plain POST. Backend enforces account allowlist.
+*/
+var RKT_API_URL = 'https://script.google.com/macros/s/AKfycbw00GeT4HGZfTimaS7LukWeJEHkij12dg1oHP6VZcwaUwjkFzcEhOOVC5Zk9tij-FJSGw/exec';
+var RKT_SYNC_INTERVAL_MS = 30000;
+var _rktReady = false;
+var _rktLoading = false;
+var _rktSaving = false;
+var _rktSaveTimer = null;
+var _rktLastServerHash = '';
+var _rktLastLocalHash = '';
+var _rktLastSyncAt = null;
+var _rktPendingRemote = false;
+var _rktSyncTimer = null;
+function _rktConfigured(){ return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(RKT_API_URL); }
+function _rktStatus(message, kind){
+  var el=document.getElementById('rktSyncStatus'); if(!el)return;
+  el.textContent=message; el.className='ms-2 '+(kind==='ok'?'text-success':kind==='bad'?'text-danger':kind==='busy'?'text-primary':'text-secondary');
+}
+function _rktHash(obj){
+  var s=JSON.stringify(obj); var h=0;
+  for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+  return String(h)+'-'+s.length;
+}
+function _rktState(){ return { daftarProgram: daftarProgram, dataEvaluasi: dataEvaluasi, schemaVersion: 1 }; }
+function _rktJsonp(action, callback){
+  var cb='__rktJsonp_'+Date.now()+'_'+Math.floor(Math.random()*100000);
+  var script=document.createElement('script'); var done=false;
+  var timer=setTimeout(function(){finish(new Error('Waktu koneksi habis. Periksa URL backend dan akses Google Workspace.'));},20000);
+  function finish(err,data){if(done)return;done=true;clearTimeout(timer);try{delete window[cb];}catch(e){window[cb]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);if(err)callback(err);else callback(null,data);}
+  window[cb]=function(data){finish(null,data);};
+  script.onerror=function(){finish(new Error('Backend tidak dapat diakses. Pastikan Web App sudah di-deploy dan URL benar.'));};
+  script.src=RKT_API_URL+(RKT_API_URL.indexOf('?')>=0?'&':'?')+'action='+encodeURIComponent(action)+'&callback='+encodeURIComponent(cb)+'&t='+Date.now();
+  document.head.appendChild(script);
+}
+function _rktLoad(showMessage){
+  if(!_rktConfigured()){_rktStatus('Backend belum dikonfigurasi','bad');return;}
+  if(_rktLoading)return;
+  _rktLoading=true;_rktStatus('Mengambil data dari Google Sheets…','busy');
+  _rktJsonp('read',function(err,res){
+    _rktLoading=false;
+    if(err||!res||res.ok!==true){_rktStatus((res&&res.message)|| (err?err.message:'Gagal membaca database'),'bad');return;}
+    if(res.found && res.data && Array.isArray(res.data.daftarProgram) && res.data.dataEvaluasi){
+      // Do not overwrite unsaved local edits. If there are local changes, ask before applying remote state.
+      var localHash=_rktHash(_rktState());
+      if(_rktReady && _rktLastLocalHash && localHash!==_rktLastLocalHash && _rktLastLocalHash!==_rktLastServerHash){
+        _rktPendingRemote=res.data;
+        _rktStatus('Ada perubahan lokal dan data server berbeda','busy');
+        var apply=confirm('Data Google Sheets berubah sementara ada perubahan lokal yang belum tersinkron. Muat data server dan buang perubahan lokal? Pilih Batal untuk mempertahankan data lokal.');
+        if(!apply){_rktStatus('Perubahan lokal dipertahankan; sinkronkan setelah selesai mengedit','busy');return;}
+      }
+      daftarProgram=res.data.daftarProgram;
+      dataEvaluasi=res.data.dataEvaluasi;
+      if(typeof renderEvaluasi==='function')renderEvaluasi();
+      if(typeof renderTabelRKT==='function')renderTabelRKT();
+      _rktLastServerHash=_rktHash(_rktState());
+      _rktLastLocalHash=_rktLastServerHash;
+      _rktLastSyncAt=new Date();_rktReady=true;
+      var init=document.getElementById('rktInitDb');if(init)init.style.display='none';
+      _rktStatus('Tersinkron','ok');
+      var meta=document.getElementById('rktSyncMeta');if(meta)meta.textContent='Terakhir sinkron: '+_rktLastSyncAt.toLocaleString('id-ID')+' • Pembaruan otomatis setiap 30 detik.';
+    } else {
+      _rktReady=true;
+      var init=document.getElementById('rktInitDb');if(init)init.style.display='inline-block';
+      _rktLastServerHash='';_rktLastLocalHash=_rktHash(_rktState());
+      _rktStatus('Database masih kosong — data contoh belum tersimpan','busy');
+      var meta=document.getElementById('rktSyncMeta');if(meta)meta.textContent='Klik “Simpan data awal ke database” untuk mengisi Google Sheets dengan data yang saat ini tampil.';
+    }
+  });
+}
+function _rktSaveNow(force){
+  if(!_rktConfigured()){_rktStatus('Backend belum dikonfigurasi','bad');return;}
+  if(!_rktReady||_rktSaving)return;
+  var state=_rktState();var hash=_rktHash(state);
+  if(!force && hash===_rktLastServerHash){return;}
+  _rktSaving=true;_rktStatus('Mengirim perubahan ke Google Sheets…','busy');
+  fetch(RKT_API_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'write',data:state})})
+    .then(function(){_rktLastLocalHash=hash;_rktStatus('Perubahan dikirim; memverifikasi database…','busy');setTimeout(function(){_rktSaving=false;_rktLoad(false);},1800);})
+    .catch(function(err){_rktSaving=false;_rktStatus('Gagal mengirim: '+(err&&err.message?err.message:'koneksi bermasalah'),'bad');});
+}
+function _rktQueueSave(){
+  if(!_rktReady||!_rktConfigured())return;
+  _rktLastLocalHash=_rktHash(_rktState());
+  clearTimeout(_rktSaveTimer);_rktSaveTimer=setTimeout(function(){_rktSaveNow(false);},900);
+}
+function _rktInitDatabase(){
+  if(!_rktConfigured()){alert('Atur RKT_API_URL terlebih dahulu pada file index.html.');return;}
+  if(!confirm('Simpan seluruh data yang sedang tampil sebagai data awal Google Sheets? Data yang sudah ada di server tidak akan ditimpa kecuali Anda menyetujui inisialisasi ini.'))return;
+  _rktReady=true;_rktSaveNow(true);
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var syncBtn=document.getElementById('rktSyncNow');if(syncBtn)syncBtn.addEventListener('click',function(){_rktLoad(true);});
+  var initBtn=document.getElementById('rktInitDb');if(initBtn)initBtn.addEventListener('click',_rktInitDatabase);
+  if(!_rktConfigured()){
+    _rktStatus('Backend belum dikonfigurasi','bad');
+    var meta=document.getElementById('rktSyncMeta');if(meta)meta.textContent='Setelah deploy Apps Script, tempel URL Web App pada variabel RKT_API_URL di index.html.';
+    return;
+  }
+  _rktLoad(true);
+  _rktSyncTimer=setInterval(function(){if(!_rktSaving)_rktLoad(false);},RKT_SYNC_INTERVAL_MS);
+});
+// Persist after existing render functions run, which are called by the dashboard's save/delete workflows.
+if(typeof renderTabelRKT==='function'){
+  var _rktOriginalRenderTable=renderTabelRKT;
+  renderTabelRKT=function(){var out=_rktOriginalRenderTable.apply(this,arguments);_rktQueueSave();return out;};
+}
+if(typeof renderEvaluasi==='function'){
+  var _rktOriginalRenderEvaluation=renderEvaluasi;
+  renderEvaluasi=function(){var out=_rktOriginalRenderEvaluation.apply(this,arguments);_rktQueueSave();return out;};
+}
+// Extra guard: changes to form inputs inside edit dialogs are saved when the existing modal form is submitted.
+document.addEventListener('submit',function(){_rktQueueSave();},true);
+window.addEventListener('beforeunload',function(){if(_rktReady && _rktConfigured() && _rktHash(_rktState())!==_rktLastServerHash){_rktSaveNow(false);}});
+</script>
+
+</body>
+</html>
